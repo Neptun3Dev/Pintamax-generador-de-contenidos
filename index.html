@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Studio - Generador de Prompts & Copys Pintamax®</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f6ff',
+                            100: '#e0edff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#0f172a',
+                            gold: '#f59e0b'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .ratio-4-5 { aspect-ratio: 4 / 5; }
+        .ratio-9-16 { aspect-ratio: 9 / 16; }
+        .ratio-1-1 { aspect-ratio: 1 / 1; }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .skeleton-loader {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.8s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-amber-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-wand-magic-sparkles text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg text-white leading-none flex items-center gap-2">
+                    Gemini Prompt Studio
+                    <span class="text-[10px] uppercase font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">Pintamax® Edition</span>
+                </h1>
+                <p class="text-xs text-slate-400">Generador de Prompts Estrictos de Imagen para Gemini Nano / Imagen 3</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- API Key Button -->
+            <button onclick="openApiKeyModal()" id="apiKeyBtn" class="flex items-center space-x-2 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg transition">
+                <i class="fa-solid fa-key text-amber-400"></i>
+                <span id="apiKeyStatus">API Key Gemini</span>
+            </button>
+
+            <!-- Deployment Info Modal Toggle -->
+            <button onclick="openDeployModal()" class="flex items-center space-x-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg transition">
+                <i class="fa-brands fa-github text-white"></i>
+                <span class="hidden sm:inline">Guía GitHub Pages</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP WRAPPER -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        <!-- SIDEBAR: BRIEF & BRAND IDENTITY CONFIGURATION -->
+        <aside class="w-full lg:w-96 border-r border-slate-800 bg-slate-900/50 p-4 lg:p-6 overflow-y-auto space-y-6 flex-shrink-0">
+            
+            <!-- BRAND IDENTITY PRESETS -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-palette text-blue-400"></i> 1. Identidad Gráfica Pintamax®
+                    </label>
+                    <button onclick="resetBrandToDefault()" class="text-[11px] text-slate-400 hover:text-white underline">Restablecer</button>
+                </div>
+
+                <select id="brandPresetSelect" onchange="handlePresetChange()" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="pintamax_official" selected>Pintamax® Oficial (Azul #084375 & Amarillo #F59E0B)</option>
+                    <option value="editorial_dark">Tech Editorial Dark (Slate & Amber)</option>
+                    <option value="minimal_matte">Minimalista Mate (Fotografía Orgánica Soft)</option>
+                    <option value="cinematic_film">Cinematográfico 35mm (Kodak Portra Warm)</option>
+                    <option value="custom">-- Personalizado --</option>
+                </select>
+
+                <!-- AUDIENCE SELECTOR FOR PINTAMAX TONE OF VOICE -->
+                <div id="audienceContainer" class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 space-y-1">
+                    <label class="text-[11px] font-semibold text-slate-400 block"><i class="fa-solid fa-users text-amber-400 me-1"></i> Público Objetivo / Tono Pintamax:</label>
+                    <select id="pintamaxAudienceSelect" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-1.5 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                        <option value="publico_final">Público Final (Cercano, emocional, hogar, transformación)</option>
+                        <option value="maestros_obra">Maestros de Obra (Semi-técnico, rendimiento galón, práctico)</option>
+                        <option value="arquitectos_ing">Arquitectos e Ingenieros (Técnico B2B, normas NTC, especificación)</option>
+                    </select>
+                </div>
+
+                <!-- BRAND SPECS DETAILS -->
+                <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-3 space-y-3 text-xs">
+                    <div>
+                        <span class="text-slate-400 block mb-1">Paleta de Colores Principal:</span>
+                        <div class="flex gap-2">
+                            <input type="color" id="primaryColorHex" value="#084375" onchange="updateCustomPreset()" class="w-7 h-7 rounded border-0 cursor-pointer bg-transparent">
+                            <input type="text" id="primaryColorText" value="#084375 (Azul Pintamax)" readonly class="bg-slate-900 border border-slate-800 text-slate-300 rounded px-2 py-1 flex-1 font-mono text-[11px]">
+                            
+                            <input type="color" id="accentColorHex" value="#F59E0B" onchange="updateCustomPreset()" class="w-7 h-7 rounded border-0 cursor-pointer bg-transparent">
+                            <input type="text" id="accentColorText" value="#F59E0B (Amarillo Cálido)" readonly class="bg-slate-900 border border-slate-800 text-slate-300 rounded px-2 py-1 flex-1 font-mono text-[11px]">
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-400 block mb-1">Estilo Render / Fotográfico Pintamax:</span>
+                        <input type="text" id="cameraSpecs" value="Clean 3D matte object render on neutral pedestal, high contrast studio lighting, dynamic cutout painter aesthetic, clean paper torn textures" class="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded px-2 py-1.5 font-mono text-[11px] focus:border-blue-500 outline-none">
+                    </div>
+
+                    <div>
+                        <span class="text-slate-400 block mb-1">Espacio Negativo para Tipografía:</span>
+                        <input type="text" id="textureSpecs" value="50% negative clean white/neutral space reserved for Sugo Pro condensed titles and Amertha script accents" class="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded px-2 py-1.5 font-mono text-[11px] focus:border-blue-500 outline-none">
+                    </div>
+
+                    <div>
+                        <span class="text-slate-400 block mb-1">Filtros Negativos (Anti-Feo / Anti-Stock):</span>
+                        <textarea id="negativeRules" rows="2" class="w-full bg-slate-900 border border-slate-800 text-red-300/80 rounded p-2 font-mono text-[11px] focus:border-blue-500 outline-none">No CGI plastic mess, no distorted hands, no floating futuristic HUDs, no AI generated gibberish text inside image, no cluttered busy backgrounds.</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORMAT & SLIDES CONFIGURATION -->
+            <div class="space-y-3.5 border-t border-slate-800/80 pt-4">
+                <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-blue-400"></i> 2. Formato & Cantidad
+                    </span>
+                    <span id="formatBadge" class="text-[10px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">Carrusel 4:5</span>
+                </label>
+                
+                <div class="grid grid-cols-3 gap-2.5">
+                    <button type="button" onclick="setPostFormat('4:5')" id="formatBtn45" class="format-btn relative border-2 border-blue-500 bg-blue-500/10 text-white p-3 rounded-xl transition duration-150 flex flex-col items-center justify-between h-28 group shadow-lg shadow-blue-500/10">
+                        <div class="w-6 h-7 border-2 border-blue-400 rounded-sm bg-blue-500/20 flex items-center justify-center my-1 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-table-cells text-[10px] text-blue-300"></i>
+                        </div>
+                        <div class="text-center">
+                            <span class="text-xs font-bold block leading-tight">Carrusel</span>
+                            <span class="text-[10px] text-blue-300/80 font-mono">4:5 IG</span>
+                        </div>
+                    </button>
+
+                    <button type="button" onclick="setPostFormat('9:16')" id="formatBtn916" class="format-btn relative border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 p-3 rounded-xl transition duration-150 flex flex-col items-center justify-between h-28 group">
+                        <div class="w-5 h-8 border-2 border-slate-600 rounded-sm bg-slate-800 flex items-center justify-center my-1 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-mobile-screen text-[10px] text-slate-400"></i>
+                        </div>
+                        <div class="text-center">
+                            <span class="text-xs font-bold block leading-tight">Historia</span>
+                            <span class="text-[10px] text-slate-500 font-mono">9:16 Vert</span>
+                        </div>
+                    </button>
+
+                    <button type="button" onclick="setPostFormat('1:1')" id="formatBtn11" class="format-btn relative border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 p-3 rounded-xl transition duration-150 flex flex-col items-center justify-between h-28 group">
+                        <div class="w-7 h-7 border-2 border-slate-600 rounded-sm bg-slate-800 flex items-center justify-center my-1 group-hover:scale-105 transition">
+                            <i class="fa-regular fa-square text-[10px] text-slate-400"></i>
+                        </div>
+                        <div class="text-center">
+                            <span class="text-xs font-bold block leading-tight">Post Único</span>
+                            <span class="text-[10px] text-slate-500 font-mono">1:1 Cuad</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div id="slideCountContainer" class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between transition-all duration-200">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-300 block">Número de Láminas</span>
+                        <span class="text-[10px] text-slate-500 block">Sugerido: 3 a 5 láminas</span>
+                    </div>
+
+                    <div class="flex items-center space-x-2 bg-slate-950 border border-slate-800 rounded-lg p-1">
+                        <button type="button" onclick="changeSlideCount(-1)" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition active:scale-95">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <span id="slideCountDisplay" class="w-7 text-center font-bold text-amber-400 text-sm font-mono">4</span>
+                        <button type="button" onclick="changeSlideCount(1)" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition active:scale-95">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOPIC / BRIEF DYNAMIC INPUT (SECTION 3) -->
+            <div class="space-y-3 border-t border-slate-800/80 pt-4">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-pen-nib text-blue-400"></i> 3. Tema o Idea Central
+                    </label>
+                    <span id="topicModeBadge" class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-semibold">Modo Carrusel</span>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-semibold text-slate-400 block mb-1">Idea General / Brief del Contenido:</label>
+                    <textarea id="postTopic" rows="2" placeholder="Ej: Errores comunes al pintar fachadas y la importancia de usar bases elastoméricas Pintamax..." class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-500"></textarea>
+                </div>
+
+                <div id="dynamicInputContainer" class="space-y-3 border-t border-slate-800/80 pt-3">
+                    <!-- Dynamic fields populated by updateDynamicInputFields() -->
+                </div>
+            </div>
+
+            <!-- GENERATE BUTTON -->
+            <button id="generateBtn" onclick="generatePostPlan()" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 hover:from-blue-500 hover:to-amber-400 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition duration-200 flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-bolt text-amber-300"></i>
+                <span>Generar Prompts para Gemini Nano</span>
+            </button>
+        </aside>
+
+        <!-- MAIN WORKSPACE: PROMPTS & COPIES BOARD -->
+        <section class="flex-1 bg-slate-950 p-4 lg:p-8 overflow-y-auto space-y-6">
+            
+            <!-- TOOLBAR / STATUS -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        Tablero de Prompts & Composiciones Visuales
+                        <span id="slidesCountBadge" class="text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full">0 láminas</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">Inspecciona el mockup visual, ajusta los copys y copia el prompt exacto optimizado para Gemini Nano.</p>
+                </div>
+
+                <div id="batchActions" class="hidden flex items-center space-x-2">
+                    <button onclick="toggleOverlayAll()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg transition">
+                        <i class="fa-solid fa-eye me-1"></i> Alternar Vista Previa
+                    </button>
+                    <button onclick="copyFullPlan()" class="text-xs bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-3 py-2 rounded-lg shadow transition">
+                        <i class="fa-regular fa-copy me-1"></i> Copiar Todo en Markdown
+                    </button>
+                </div>
+            </div>
+
+            <!-- EMPTY STATE -->
+            <div id="emptyState" class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20 text-center space-y-4">
+                <div class="w-16 h-16 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-500 text-2xl">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="max-w-md space-y-1">
+                    <h3 class="text-base font-semibold text-slate-200">Aún no has generado una publicación</h3>
+                    <p class="text-xs text-slate-400">Ingresa tu tema en el panel izquierdo y presiona el botón para construir la narrativa y los prompts de imagen para Gemini Nano.</p>
+                </div>
+            </div>
+
+            <!-- LOADING SKELETON -->
+            <div id="loadingSkeleton" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 skeleton-loader h-96"></div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 skeleton-loader h-96"></div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 skeleton-loader h-96"></div>
+            </div>
+
+            <!-- SLIDES GRID CONTAINER -->
+            <div id="slidesGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Dynamically populated slide cards -->
+            </div>
+
+            <!-- MASTER PROMPT / JSON EXPORT PANEL -->
+            <div id="exportSection" class="hidden border border-slate-800 bg-slate-900/60 rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-code text-blue-400"></i> Plan Completo & Prompts Ensamblados
+                    </h3>
+                    <button onclick="copyFullPlan()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg transition text-slate-300">
+                        <i class="fa-regular fa-copy me-1"></i> Copiar Plan en Markdown
+                    </button>
+                </div>
+                <textarea id="fullPlanMarkdown" readonly rows="8" class="w-full bg-slate-950 border border-slate-800 text-slate-300 rounded-xl p-3 font-mono text-xs focus:outline-none"></textarea>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL: API KEY CONFIGURATION -->
+    <div id="apiKeyModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-key text-amber-400"></i> Configurar API Key de Gemini
+                </h3>
+                <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Esta clave se usa únicamente para que el modelo de texto de Gemini genere los copys y ensamble los prompts de imagen. Se guarda en el <strong>localStorage</strong> de tu navegador.
+            </p>
+
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-400">Google Gemini API Key:</label>
+                <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 text-white rounded-lg p-3 text-xs focus:ring-2 focus:ring-blue-500 outline-none font-mono">
+                <p class="text-[11px] text-slate-500">¿No tienes clave? Consíguela gratis en <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 underline">Google AI Studio</a>.</p>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="clearApiKey()" class="px-3 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Borrar</button>
+                <button onclick="saveApiKey()" class="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow">Guardar Clave</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GITHUB PAGES DEPLOYMENT GUIDE -->
+    <div id="deployModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-brands fa-github text-white"></i> Cómo Ponerlo en Producción en GitHub Pages
+                </h3>
+                <button onclick="closeDeployModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-blue-500/10 border border-blue-500/30 p-3 rounded-lg text-blue-200">
+                    <i class="fa-solid fa-shield-halved me-1 text-blue-400"></i>
+                    <strong>Seguridad Privada:</strong> Al usar la arquitectura BYOK, puedes subir este repositorio a GitHub sin exponer credenciales.
+                </div>
+
+                <ol class="list-decimal list-inside space-y-3 font-sans">
+                    <li class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <strong class="text-white">Crea un Repositorio en GitHub:</strong> Nómbralo por ejemplo <code>Pintamax-generador-de-contenidos</code>.
+                    </li>
+                    <li class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <strong class="text-white">Sube este archivo index.html:</strong> Asegúrate de nombrarlo exactamente en minúsculas <code>index.html</code> en la raíz.
+                    </li>
+                    <li class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <strong class="text-white">Activa GitHub Pages:</strong> En <strong>Settings -> Pages</strong> selecciona <code>Deploy from a branch</code> y la rama <code>main</code>.
+                    </li>
+                </ol>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="closeDeployModal()" class="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFormat = '4:5';
+        let slideCount = 4;
+        let generatedSlides = [];
+        let overlaysVisible = true;
+
+        const BRAND_PRESETS = {
+            pintamax_official: {
+                primaryColor: '#084375',
+                primaryName: '#084375 (Azul Pintamax)',
+                accentColor: '#F59E0B',
+                accentName: '#F59E0B (Amarillo Cálido)',
+                camera: 'Clean 3D matte object render on neutral pedestal, high contrast studio lighting, dynamic cutout painter aesthetic, clean paper torn textures',
+                texture: '50% negative clean white/neutral space reserved for Sugo Pro condensed titles and Amertha script accents',
+                negative: 'No CGI plastic mess, no distorted hands, no floating futuristic HUDs, no AI generated gibberish text inside image, no cluttered busy backgrounds.'
+            },
+            editorial_dark: {
+                primaryColor: '#0f172a',
+                primaryName: '#0f172a (Pizarra)',
+                accentColor: '#f59e0b',
+                accentName: '#f59e0b (Ámbar)',
+                camera: '35mm Leica M10, f/2.8 lens, directional natural soft key light, subtle depth of field',
+                texture: 'Matte fine grain texture, dark slate atmosphere, 40% clean negative space for overlays',
+                negative: 'No CGI plastic sheen, no 3D stock avatars, no floating futuristic circles, no distorted hands, no AI generated gibberish text inside image.'
+            },
+            minimal_matte: {
+                primaryColor: '#f8fafc',
+                primaryName: '#f8fafc (Crema Mate)',
+                accentColor: '#0f172a',
+                accentName: '#0f172a (Negro Grafito)',
+                camera: 'Shot on Hasselblad H6D, 80mm lens, soft diffused shadow studio lighting, clean high key photography',
+                texture: 'Minimalist organic paper texture, neutral beige muted tones, generous negative empty space',
+                negative: 'No dark harsh shadows, no neon colors, no glossy metallic render, no busy background clutter, no fake text.'
+            },
+            cinematic_film: {
+                primaryColor: '#1c1917',
+                primaryName: '#1c1917 (Warm Charcoal)',
+                accentColor: '#ea580c',
+                accentName: '#ea580c (Cálido Kodak)',
+                camera: 'Analog photo shot on 35mm Kodak Portra 400, warm golden hour ambient lighting, subtle lens flare',
+                texture: 'Authentic film grain, nostalgic matte color grade, cinematic composition with rule of thirds',
+                negative: 'No modern digital sharpness, no cold blue artificial LEDs, no smooth plastic 3D skin, no floating icons.'
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkStoredApiKey();
+            handlePresetChange();
+            updateDynamicInputFields();
+            updateSlideCountBadge();
+        });
+
+        function checkStoredApiKey() {
+            const key = localStorage.getItem('gemini_api_key');
+            const statusEl = document.getElementById('apiKeyStatus');
+            if (key) {
+                statusEl.textContent = 'API Key Configurada';
+                statusEl.classList.add('text-green-400');
+            } else {
+                statusEl.textContent = 'Configurar API Key';
+                statusEl.classList.remove('text-green-400');
+            }
+        }
+
+        function openApiKeyModal() {
+            document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_api_key') || '';
+            document.getElementById('apiKeyModal').classList.remove('hidden');
+        }
+        function closeApiKeyModal() { document.getElementById('apiKeyModal').classList.add('hidden'); }
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key) localStorage.setItem('gemini_api_key', key);
+            else localStorage.removeItem('gemini_api_key');
+            checkStoredApiKey();
+            closeApiKeyModal();
+        }
+        function clearApiKey() {
+            localStorage.removeItem('gemini_api_key');
+            document.getElementById('apiKeyInput').value = '';
+            checkStoredApiKey();
+            closeApiKeyModal();
+        }
+
+        function openDeployModal() { document.getElementById('deployModal').classList.remove('hidden'); }
+        function closeDeployModal() { document.getElementById('deployModal').classList.add('hidden'); }
+
+        function handlePresetChange() {
+            const presetVal = document.getElementById('brandPresetSelect').value;
+            if (presetVal === 'custom') return;
+
+            const preset = BRAND_PRESETS[presetVal];
+            if (!preset) return;
+
+            document.getElementById('primaryColorHex').value = preset.primaryColor;
+            document.getElementById('primaryColorText').value = preset.primaryName;
+            document.getElementById('accentColorHex').value = preset.accentColor;
+            document.getElementById('accentColorText').value = preset.accentName;
+            document.getElementById('cameraSpecs').value = preset.camera;
+            document.getElementById('textureSpecs').value = preset.texture;
+            document.getElementById('negativeRules').value = preset.negative;
+        }
+
+        function updateCustomPreset() {
+            document.getElementById('brandPresetSelect').value = 'custom';
+            document.getElementById('primaryColorText').value = document.getElementById('primaryColorHex').value;
+            document.getElementById('accentColorText').value = document.getElementById('accentColorHex').value;
+        }
+
+        function resetBrandToDefault() {
+            document.getElementById('brandPresetSelect').value = 'pintamax_official';
+            handlePresetChange();
+        }
+
+        function setPostFormat(format) {
+            currentFormat = format;
+            const formats = [
+                { id: '45', formatKey: '4:5', badgeText: 'Carrusel 4:5' },
+                { id: '916', formatKey: '9:16', badgeText: 'Historia 9:16' },
+                { id: '11', formatKey: '1:1', badgeText: 'Post Único 1:1' }
+            ];
+
+            formats.forEach(item => {
+                const btn = document.getElementById('formatBtn' + item.id);
+                if (item.formatKey === format) {
+                    btn.className = "format-btn relative border-2 border-blue-500 bg-blue-500/10 text-white p-3 rounded-xl transition duration-150 flex flex-col items-center justify-between h-28 group shadow-lg shadow-blue-500/10";
+                    document.getElementById('formatBadge').textContent = item.badgeText;
+                } else {
+                    btn.className = "format-btn relative border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 p-3 rounded-xl transition duration-150 flex flex-col items-center justify-between h-28 group";
+                }
+            });
+
+            const slideContainer = document.getElementById('slideCountContainer');
+
+            if (format === '4:5') {
+                slideContainer.classList.remove('opacity-50', 'pointer-events-none');
+                document.getElementById('topicModeBadge').textContent = 'Modo Carrusel (4:5)';
+            } else if (format === '9:16') {
+                slideContainer.classList.remove('opacity-50', 'pointer-events-none');
+                document.getElementById('topicModeBadge').textContent = 'Modo Historia (9:16)';
+            } else {
+                slideCount = 1;
+                document.getElementById('slideCountDisplay').textContent = '1';
+                slideContainer.classList.add('opacity-50', 'pointer-events-none');
+                document.getElementById('topicModeBadge').textContent = 'Modo Post Único (1:1)';
+            }
+
+            updateDynamicInputFields();
+        }
+
+        function changeSlideCount(delta) {
+            if (currentFormat === '1:1') return;
+            slideCount = Math.max(1, Math.min(8, slideCount + delta));
+            document.getElementById('slideCountDisplay').textContent = slideCount;
+            updateDynamicInputFields();
+        }
+
+        function updateDynamicInputFields() {
+            const container = document.getElementById('dynamicInputContainer');
+            container.innerHTML = '';
+
+            if (currentFormat === '1:1') {
+                container.innerHTML = `
+                    <div class="bg-slate-900 border border-slate-800 p-3 rounded-lg space-y-2">
+                        <span class="text-[11px] font-bold text-amber-400 block uppercase"><i class="fa-regular fa-newspaper me-1"></i> Detalle de Post Único:</span>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-semibold block">Título Principal (Sugo Pro / Impacto):</label>
+                            <input type="text" id="singlePostTitle" placeholder="Ej: ¿Fachada aburrida? Renueva como un experto" class="w-full bg-slate-950 border border-slate-800 text-white rounded p-2 text-xs focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-semibold block">Cuerpo del Post (Montserrat / Beneficios):</label>
+                            <textarea id="singlePostBody" rows="3" placeholder="Ej: Descubre cómo el elastomérico de Pintamax absorbe micro-movimientos del concreto sin romperse." class="w-full bg-slate-950 border border-slate-800 text-slate-300 rounded p-2 text-xs focus:border-blue-500 outline-none"></textarea>
+                        </div>
+                    </div>
+                `;
+            } else {
+                let slidesHtml = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-bold text-blue-400 uppercase"><i class="fa-solid fa-layer-group me-1"></i> Textos por Slide (${slideCount} Láminas):</span>
+                        <span class="text-[10px] text-slate-500">(Opcional)</span>
+                    </div>
+                `;
+
+                for (let i = 1; i <= slideCount; i++) {
+                    slidesHtml += `
+                        <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-lg space-y-1.5">
+                            <span class="text-[10px] font-bold text-amber-400 uppercase block">Slide ${i}</span>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input type="text" id="slideTitle_${i}" placeholder="Título Slide ${i}" class="bg-slate-950 border border-slate-800 text-white rounded p-1.5 text-[11px] outline-none focus:border-blue-500">
+                                <input type="text" id="slideBody_${i}" placeholder="Cuerpo Slide ${i}" class="bg-slate-950 border border-slate-800 text-slate-300 rounded p-1.5 text-[11px] outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = slidesHtml;
+            }
+        }
+
+        function updateSlideCountBadge() {
+            document.getElementById('slidesCountBadge').textContent = `${generatedSlides.length} láminas`;
+        }
+
+        async function generatePostPlan() {
+            const topic = document.getElementById('postTopic').value.trim();
+            if (!topic) {
+                alert("Por favor ingresa una idea general o brief para la publicación.");
+                return;
+            }
+
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('slidesGrid').innerHTML = '';
+            document.getElementById('loadingSkeleton').classList.remove('hidden');
+            document.getElementById('exportSection').classList.add('hidden');
+
+            const primaryColor = document.getElementById('primaryColorHex').value;
+            const accentColor = document.getElementById('accentColorHex').value;
+            const cameraSpecs = document.getElementById('cameraSpecs').value;
+            const textureSpecs = document.getElementById('textureSpecs').value;
+            const negativeRules = document.getElementById('negativeRules').value;
+
+            const audienceVal = document.getElementById('pintamaxAudienceSelect').value;
+            let audienceContext = "";
+            if (audienceVal === "publico_final") {
+                audienceContext = "PÚBLICO FINAL / FAMILIAR: Tono cálido, cercano, empático y emocional. Enfocado en renovación del hogar y belleza del color.";
+            } else if (audienceVal === "maestros_obra") {
+                audienceContext = "MAESTROS DE OBRA / PAINTERS: Tono directo, práctico y entre profesionales. Enfocado en rendimiento por galón, nivelación y secado rápido.";
+            } else {
+                audienceContext = "ARQUITECTOS E INGENIEROS (B2B): Tono técnico, formal y de alta especificación. Enfocado en m²/gal, resistencia NTC y certificaciones COV/VOC.";
+            }
+
+            let customFieldsContext = "";
+            if (currentFormat === '1:1') {
+                const sTitle = document.getElementById('singlePostTitle')?.value.trim();
+                const sBody = document.getElementById('singlePostBody')?.value.trim();
+                if (sTitle || sBody) {
+                    customFieldsContext = `\nTEXTOS ESPECÍFICOS PROPORCIONADOS POR EL USUARIO:
+- Título: "${sTitle || 'Auto'}"
+- Cuerpo: "${sBody || 'Auto'}"`;
+                }
+            } else {
+                let slideTextAcc = [];
+                for (let i = 1; i <= slideCount; i++) {
+                    const t = document.getElementById(`slideTitle_${i}`)?.value.trim();
+                    const b = document.getElementById(`slideBody_${i}`)?.value.trim();
+                    if (t || b) {
+                        slideTextAcc.push(`Slide ${i}: Título="${t || 'Auto'}" | Cuerpo="${b || 'Auto'}"`);
+                    }
+                }
+                if (slideTextAcc.length > 0) {
+                    customFieldsContext = `\nTEXTOS MANUALES POR SLIDE:\n` + slideTextAcc.join("\n");
+                }
+            }
+
+            const systemPrompt = `Eres el Director de Arte e Identidad de Marca de Pintamax® (¡Pinta con Confianza!).
+Tu misión es diseñar la estructura completa de un post (${currentFormat}) con ${slideCount} lámina(s) siguiendo el Manual de Identidad Pintamax®.
+
+AUDIENCIA Y TONO:
+${audienceContext}
+
+REGLAS DE IDENTIDAD VISUAL PINTAMAX®:
+- Paleta HEX primaria: ${primaryColor} (Azul Pintamax)
+- Paleta HEX acento: ${accentColor} (Amarillo Cálido / Cyan)
+- Referencias tipográficas: Sugo Pro (condensada impactante) y Amertha (script caligráfico).
+- Render de Imagen: ${cameraSpecs}
+- Espacio Negativo: ${textureSpecs}
+- Filtros Negativos: ${negativeRules}
+${customFieldsContext}
+
+Para cada lámina debes generar:
+1. Rol narrativo (ej: Slide 1: Gancho, Slide 2: Educativo, etc.).
+2. Título Impactante (máx 6 palabras).
+3. Texto del Cuerpo (máx 15 palabras).
+4. Un PROMPT DE IMAGEN HIPER-ESPECÍFICO EN INGLÉS optimizado para Gemini Nano / Imagen 3 que describa sujeto, composición, fondo, iluminación, paleta HEX y espacio negativo. NUNCA pidas texto dentro de la imagen.
+
+Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
+[
+  {
+    "slideNumber": 1,
+    "slideRole": "Gancho / Hook",
+    "headline": "...",
+    "bodyText": "...",
+    "visualConceptPrompt": "Detailed prompt in English describing subject, composition, studio lighting, background, matching Pintamax brand parameters"
+  }
+]`;
+
+            const userQuery = `Brief: "${topic}". Formato: ${currentFormat}. Cantidad de láminas: ${slideCount}.`;
+
+            try {
+                const userApiKey = localStorage.getItem('gemini_api_key') || "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${userApiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Error en API de Gemini (${response.status})`);
+
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!jsonText) throw new Error("Respuesta inválida del modelo.");
+
+                const slidesData = JSON.parse(jsonText);
+
+                generatedSlides = slidesData.map(slide => {
+                    const fullEngineeredPrompt = `${slide.visualConceptPrompt}. Visual Style: ${cameraSpecs}. Brand Colors: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
+                    return {
+                        ...slide,
+                        engineeredPrompt: fullEngineeredPrompt
+                    };
+                });
+
+                renderSlidesGrid();
+                renderExportMarkdown();
+
+            } catch (error) {
+                console.error(error);
+                alert("Ocurrió un error al generar la estrategia: " + error.message);
+                document.getElementById('emptyState').classList.remove('hidden');
+            } finally {
+                document.getElementById('loadingSkeleton').classList.add('hidden');
+            }
+        }
+
+        function renderSlidesGrid() {
+            const grid = document.getElementById('slidesGrid');
+            grid.innerHTML = '';
+
+            if (generatedSlides.length === 0) {
+                document.getElementById('emptyState').classList.remove('hidden');
+                document.getElementById('batchActions').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('emptyState').classList.remove('hidden');
+            document.getElementById('batchActions').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+            updateSlideCountBadge();
+
+            const aspectClass = currentFormat === '4:5' ? 'ratio-4-5' : (currentFormat === '9:16' ? 'ratio-9-16' : 'ratio-1-1');
+
+            generatedSlides.forEach((slide, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col space-y-4 shadow-xl relative group";
+
+                card.innerHTML = `
+                    <!-- CARD HEADER -->
+                    <div class="flex items-center justify-between text-xs border-b border-slate-800/80 pb-2">
+                        <span class="font-bold text-blue-400 flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[11px]">${slide.slideNumber}</span>
+                            ${slide.slideRole || 'Lámina ' + slide.slideNumber}
+                        </span>
+                        <button onclick="toggleCardOverlay(${idx})" class="p-1.5 text-slate-400 hover:text-white rounded" title="Alternar Vista Previa"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+
+                    <!-- VISUAL CANVAS PREVIEW MOCKUP -->
+                    <div class="relative w-full ${aspectClass} bg-gradient-to-br from-slate-900 via-blue-950/40 to-slate-900 rounded-xl overflow-hidden border border-slate-800/80 flex items-center justify-center group/canvas p-4 text-center">
+                        
+                        <div id="overlay-${idx}" class="${overlaysVisible ? 'flex' : 'hidden'} absolute inset-0 bg-slate-950/80 backdrop-blur-[2px] p-5 flex-col justify-between pointer-events-none transition duration-300 z-10 border border-amber-500/20">
+                            <div class="flex items-center justify-between text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                                <span>Pintamax® Studio</span>
+                                <span>Lámina ${slide.slideNumber}</span>
+                            </div>
+                            
+                            <div class="space-y-2 text-left my-auto">
+                                <h4 class="text-lg font-extrabold text-white leading-tight uppercase font-mono tracking-tight drop-shadow-md border-l-2 border-amber-400 pl-2">${slide.headline}</h4>
+                                <p class="text-xs text-slate-300 leading-snug drop-shadow">${slide.bodyText}</p>
+                            </div>
+
+                            <div class="text-[9px] text-slate-500 font-mono text-right">
+                                Espacio Reservado para Render 3D / Foto Pintamax
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <i class="fa-solid fa-layer-group text-slate-600 text-2xl"></i>
+                            <p class="text-[11px] text-slate-500 font-mono">Mockup de Diagramación</p>
+                        </div>
+                    </div>
+
+                    <!-- COPY EDITORS -->
+                    <div class="space-y-2 text-xs">
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-slate-500">Titular (Sugo Pro / Impacto):</label>
+                            <input type="text" value="${slide.headline}" onchange="updateSlideHeadline(${idx}, this.value)" class="w-full bg-slate-950 border border-slate-800 text-white rounded p-1.5 font-medium outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-slate-500">Cuerpo (Montserrat):</label>
+                            <textarea rows="2" onchange="updateSlideBody(${idx}, this.value)" class="w-full bg-slate-950 border border-slate-800 text-slate-300 rounded p-1.5 outline-none focus:border-blue-500">${slide.bodyText}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- PROMPT INSPECTOR & COPY BUTTON FOR GEMINI NANO -->
+                    <div class="pt-2 border-t border-slate-800/80 space-y-2">
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-amber-400 font-bold flex items-center gap-1"><i class="fa-solid fa-terminal text-amber-400"></i> Prompt para Gemini Nano:</span>
+                        </div>
+                        <textarea rows="3" onchange="updateSlidePrompt(${idx}, this.value)" class="w-full bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-mono rounded p-2 focus:border-blue-500 outline-none">${slide.engineeredPrompt}</textarea>
+                        
+                        <button onclick="copyPrompt(${idx})" class="w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition duration-150 text-xs flex items-center justify-center gap-1.5 shadow">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copiar Prompt para Gemini</span>
+                        </button>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function updateSlideHeadline(idx, val) {
+            generatedSlides[idx].headline = val;
+            const overlay = document.querySelector(`#overlay-${idx} h4`);
+            if (overlay) overlay.textContent = val;
+            renderExportMarkdown();
+        }
+
+        function updateSlideBody(idx, val) {
+            generatedSlides[idx].bodyText = val;
+            const overlay = document.querySelector(`#overlay-${idx} p`);
+            if (overlay) overlay.textContent = val;
+            renderExportMarkdown();
+        }
+
+        function updateSlidePrompt(idx, val) {
+            generatedSlides[idx].engineeredPrompt = val;
+            renderExportMarkdown();
+        }
+
+        function toggleCardOverlay(idx) {
+            const overlay = document.getElementById(`overlay-${idx}`);
+            if (overlay) overlay.classList.toggle('hidden');
+        }
+
+        function toggleOverlayAll() {
+            overlaysVisible = !overlaysVisible;
+            generatedSlides.forEach((_, idx) => {
+                const overlay = document.getElementById(`overlay-${idx}`);
+                if (overlay) {
+                    if (overlaysVisible) overlay.classList.remove('hidden');
+                    else overlay.classList.add('hidden');
+                }
+            });
+        }
+
+        function copyPrompt(idx) {
+            const promptText = generatedSlides[idx].engineeredPrompt;
+            navigator.clipboard.writeText(promptText);
+            alert("¡Prompt copiado al portapapeles! Ya puedes pegarlo en Gemini Nano.");
+        }
+
+        function renderExportMarkdown() {
+            if (generatedSlides.length === 0) return;
+
+            document.getElementById('exportSection').classList.remove('hidden');
+            let md = `# ESTRATEGIA DE POST & PROMPTS GEMINI NANO\n\n`;
+            md += `**Tema:** ${document.getElementById('postTopic').value}\n`;
+            md += `**Formato:** ${currentFormat} | **Láminas:** ${generatedSlides.length}\n\n`;
+            md += `---\n\n`;
+
+            generatedSlides.forEach(slide => {
+                md += `### Lámina ${slide.slideNumber}: ${slide.slideRole || ''}\n`;
+                md += `- **Headline:** ${slide.headline}\n`;
+                md += `- **Cuerpo:** ${slide.bodyText}\n`;
+                md += `- **Prompt Gemini Nano:** \`${slide.engineeredPrompt}\` \n\n`;
+            });
+
+            document.getElementById('fullPlanMarkdown').value = md;
+        }
+
+        function copyFullPlan() {
+            const textarea = document.getElementById('fullPlanMarkdown');
+            navigator.clipboard.writeText(textarea.value);
+            alert("¡Plan completo en Markdown copiado al portapapeles!");
+        }
+    </script>
+</body>
+</html>
