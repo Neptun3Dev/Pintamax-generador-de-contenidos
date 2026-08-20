@@ -143,7 +143,7 @@
 
                     <div>
                         <span class="text-slate-400 block mb-1">Filtros Negativos (Anti-Feo / Anti-Stock):</span>
-                        <textarea id="negativeRules" rows="2" class="w-full bg-slate-900 border border-slate-800 text-red-300/80 rounded p-2 font-mono text-[11px] focus:border-blue-500 outline-none">No CGI plastic mess, no distorted hands, no floating futuristic HUDs, no AI generated gibberish text inside image, no cluttered busy backgrounds.</textarea>
+                        <textarea id="negativeRules" rows="2" class="w-full bg-slate-900 border border-slate-800 text-red-300/80 rounded p-2 font-mono text-[11px] focus:border-blue-500 outline-none">No CGI plastic mess, no distorted hands, no floating futuristic HUDs, no misspelled or gibberish unreadable text, no cluttered busy backgrounds.</textarea>
                     </div>
                 </div>
             </div>
@@ -370,7 +370,7 @@
                 accentName: '#F59E0B (Amarillo Cálido)',
                 camera: 'Clean 3D matte object render on neutral pedestal, high contrast studio lighting, dynamic cutout painter aesthetic, clean paper torn textures',
                 texture: '50% negative clean white/neutral space reserved for Sugo Pro condensed titles and Amertha script accents',
-                negative: 'No CGI plastic mess, no distorted hands, no floating futuristic HUDs, no AI generated gibberish text inside image, no cluttered busy backgrounds.'
+                negative: 'No CGI plastic mess, no distorted hands, no floating futuristic HUDs, no misspelled or gibberish unreadable text, no cluttered busy backgrounds.'
             },
             editorial_dark: {
                 primaryColor: '#0f172a',
@@ -379,7 +379,7 @@
                 accentName: '#f59e0b (Ámbar)',
                 camera: '35mm Leica M10, f/2.8 lens, directional natural soft key light, subtle depth of field',
                 texture: 'Matte fine grain texture, dark slate atmosphere, 40% clean negative space for overlays',
-                negative: 'No CGI plastic sheen, no 3D stock avatars, no floating futuristic circles, no distorted hands, no AI generated gibberish text inside image.'
+                negative: 'No CGI plastic sheen, no 3D stock avatars, no floating futuristic circles, no distorted hands, no misspelled or unreadable gibberish text.'
             },
             minimal_matte: {
                 primaryColor: '#f8fafc',
@@ -388,7 +388,7 @@
                 accentName: '#0f172a (Negro Grafito)',
                 camera: 'Shot on Hasselblad H6D, 80mm lens, soft diffused shadow studio lighting, clean high key photography',
                 texture: 'Minimalist organic paper texture, neutral beige muted tones, generous negative empty space',
-                negative: 'No dark harsh shadows, no neon colors, no glossy metallic render, no busy background clutter, no fake text.'
+                negative: 'No dark harsh shadows, no neon colors, no glossy metallic render, no busy background clutter, no unreadable text.'
             },
             cinematic_film: {
                 primaryColor: '#1c1917',
@@ -397,7 +397,7 @@
                 accentName: '#ea580c (Cálido Kodak)',
                 camera: 'Analog photo shot on 35mm Kodak Portra 400, warm golden hour ambient lighting, subtle lens flare',
                 texture: 'Authentic film grain, nostalgic matte color grade, cinematic composition with rule of thirds',
-                negative: 'No modern digital sharpness, no cold blue artificial LEDs, no smooth plastic 3D skin, no floating icons.'
+                negative: 'No modern digital sharpness, no cold blue artificial LEDs, no smooth plastic 3D skin, no unreadable gibberish text.'
             }
         };
 
@@ -626,7 +626,7 @@ ${audienceContext}
 REGLAS DE IDENTIDAD VISUAL PINTAMAX®:
 - Paleta HEX primaria: ${primaryColor} (Azul Pintamax)
 - Paleta HEX acento: ${accentColor} (Amarillo Cálido / Cyan)
-- Referencias tipográficas: Sugo Pro (condensada impactante) y Amertha (script caligráfico).
+- Referencias tipográficas: Sugo Pro (condensada impactante para titulares) y Amertha (script caligráfico para acentos/slogan), Montserrat/Roboto (cuerpo).
 - Render de Imagen: ${cameraSpecs}
 - Espacio Negativo: ${textureSpecs}
 - Filtros Negativos: ${negativeRules}
@@ -636,7 +636,11 @@ Para cada lámina debes generar:
 1. Rol narrativo (ej: Slide 1: Gancho, Slide 2: Educativo, etc.).
 2. Título Impactante (máx 6 palabras).
 3. Texto del Cuerpo (máx 15 palabras).
-4. Un PROMPT DE IMAGEN HIPER-ESPECÍFICO EN INGLÉS optimizado para Gemini Nano / Imagen 3 que describa sujeto, composición, fondo, iluminación, paleta HEX y espacio negativo. NUNCA pidas texto dentro de la imagen.
+4. Un PROMPT DE IMAGEN EXTENSO Y ULTRA-COMPLETO EN INGLÉS optimizado para Gemini / Imagen 3.
+   Este prompt debe incluir explícitamente:
+   a) Sujeto principal, composición, fondo, iluminación de estudio y texturas.
+   b) RENDERING EXACTO DE TEXTO Y DISTRIBUCIÓN TIPOGRÁFICA: Especifica el texto exacto del titular ("...") y cuerpo ("..."), su posición exacta en la lámina (ej: "Header placed at the top left in heavy bold condensed typography"), la jerarquía visual, alineación, color de fuente (ej: "#084375 with high contrast") y cómo se integra armónicamente con los elementos visuales/pedestal/recortes.
+   c) Relación de aspecto e instrucciones estéticas de la marca.
 
 Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 [
@@ -645,7 +649,8 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
     "slideRole": "Gancho / Hook",
     "headline": "...",
     "bodyText": "...",
-    "visualConceptPrompt": "Detailed prompt in English describing subject, composition, studio lighting, background, matching Pintamax brand parameters"
+    "textLayoutSpecs": "Description in English of where and how the text is rendered (e.g. Bold condensed Sugo Pro header top-aligned, script accent, clean body card)",
+    "visualConceptPrompt": "Extensive detailed prompt in English combining the scene visual description, exact typography rendering rules (with exact quotes for headline and body), precise text placement layout, studio lighting, matching Pintamax brand specs"
   }
 ]`;
 
@@ -686,7 +691,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 const slidesData = JSON.parse(jsonText);
 
                 generatedSlides = slidesData.map(slide => {
-                    const fullEngineeredPrompt = `${slide.visualConceptPrompt}. Visual Style: ${cameraSpecs}. Brand Colors: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
+                    const fullEngineeredPrompt = `${slide.visualConceptPrompt}. TEXT RENDERING & LAYOUT: Include the exact title text "${slide.headline}" rendered in bold impact condensed font style at the designated area, and body text "${slide.bodyText}" in crisp legible typography. Layout: ${slide.textLayoutSpecs || 'Balanced upper hierarchy with 40% clean negative space'}. Visual Style: ${cameraSpecs}. Brand Palette: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
                     return {
                         ...slide,
                         engineeredPrompt: fullEngineeredPrompt
