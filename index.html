@@ -565,6 +565,14 @@
                 return;
             }
 
+            // Validar que la API Key exista antes de hacer la petición
+            const userApiKey = localStorage.getItem('gemini_api_key') || "";
+            if (!userApiKey) {
+                openApiKeyModal();
+                alert("⚠️ Necesitas ingresar tu API Key de Gemini. Por favor configúrala en la ventana emergente.");
+                return;
+            }
+
             document.getElementById('emptyState').classList.add('hidden');
             document.getElementById('slidesGrid').innerHTML = '';
             document.getElementById('loadingSkeleton').classList.remove('hidden');
@@ -644,8 +652,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const userQuery = `Brief: "${topic}". Formato: ${currentFormat}. Cantidad de láminas: ${slideCount}.`;
 
             try {
-                const userApiKey = localStorage.getItem('gemini_api_key') || "";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${userApiKey}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userApiKey}`;
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -657,7 +664,20 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                     })
                 });
 
-                if (!response.ok) throw new Error(`Error en API de Gemini (${response.status})`);
+                if (!response.ok) {
+                    let apiMessage = "";
+                    try {
+                        const errJson = await response.json();
+                        apiMessage = errJson.error?.message || response.statusText;
+                    } catch (e) {
+                        apiMessage = response.statusText;
+                    }
+
+                    if (response.status === 403) {
+                        throw new Error(`Acceso denegado (HTTP 403): ${apiMessage}\n\nPosibles soluciones:\n1. Verifica haber ingresado una clave válida en 'API Key Gemini'.\n2. Si la creaste en Google Cloud Console, asegúrate de no tener restricciones de sitio web (HTTP Referrer) que bloqueen tu dominio de GitHub Pages.\n3. Obtén una clave limpia e ilimitada gratis desde Google AI Studio (aistudio.google.com).`);
+                    }
+                    throw new Error(`Error en API de Gemini (${response.status}): ${apiMessage}`);
+                }
 
                 const result = await response.json();
                 const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -678,7 +698,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 
             } catch (error) {
                 console.error(error);
-                alert("Ocurrió un error al generar la estrategia: " + error.message);
+                alert("Ocurrió un error al generar la estrategia:\n\n" + error.message);
                 document.getElementById('emptyState').classList.remove('hidden');
             } finally {
                 document.getElementById('loadingSkeleton').classList.add('hidden');
