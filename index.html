@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Prompts & Copys Pintamax®</title>
+    <title>Gemini Studio - Generador de Prompts & Copys Pintamax®</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome CDN for Icons -->
@@ -63,7 +63,7 @@
             </div>
             <div>
                 <h1 class="font-bold text-lg text-white leading-none flex items-center gap-2">
-                   Pintamax Content Studio
+                    Gemini Prompt Studio
                     <span class="text-[10px] uppercase font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">Pintamax® Edition</span>
                 </h1>
                 <p class="text-xs text-slate-400">Generador de Prompts Estrictos de Imagen para Gemini Nano / Imagen 3</p>
@@ -305,13 +305,16 @@
             </div>
 
             <p class="text-xs text-slate-300 leading-relaxed">
-                Esta clave se usa únicamente para que el modelo de texto de Gemini genere los copys y ensamble los prompts de imagen. Se guarda en el <strong>localStorage</strong> de tu navegador.
+                Esta clave se usa únicamente para que el modelo de texto de Gemini genere los copys y ensamble los prompts. Se guarda de forma privada en el <strong>localStorage</strong> de tu navegador.
             </p>
 
             <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-400">Google Gemini API Key:</label>
+                <label class="text-xs font-bold text-slate-400">Google Gemini API Key (de AI Studio):</label>
                 <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 text-white rounded-lg p-3 text-xs focus:ring-2 focus:ring-blue-500 outline-none font-mono">
-                <p class="text-[11px] text-slate-500">¿No tienes clave? Consíguela gratis en <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 underline">Google AI Studio</a>.</p>
+                <p class="text-[11px] text-amber-400/90 font-medium">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Asegúrate de copiar una API Key que comience con <code>AIzaSy...</code> generada en 
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 underline font-bold">Google AI Studio</a>.
+                </p>
             </div>
 
             <div class="flex justify-end space-x-2 pt-2">
@@ -408,8 +411,15 @@
             updateSlideCountBadge();
         });
 
+        function sanitizeApiKey(rawKey) {
+            if (!rawKey) return "";
+            // Remove spaces, quotes, newlines or non-printable chars accidentally copied
+            return rawKey.trim().replace(/[\r\n\t"']/g, '');
+        }
+
         function checkStoredApiKey() {
-            const key = localStorage.getItem('gemini_api_key');
+            const rawKey = localStorage.getItem('gemini_api_key');
+            const key = sanitizeApiKey(rawKey);
             const statusEl = document.getElementById('apiKeyStatus');
             if (key) {
                 statusEl.textContent = 'API Key Configurada';
@@ -426,9 +436,12 @@
         }
         function closeApiKeyModal() { document.getElementById('apiKeyModal').classList.add('hidden'); }
         function saveApiKey() {
-            const key = document.getElementById('apiKeyInput').value.trim();
-            if (key) localStorage.setItem('gemini_api_key', key);
-            else localStorage.removeItem('gemini_api_key');
+            const key = sanitizeApiKey(document.getElementById('apiKeyInput').value);
+            if (key) {
+                localStorage.setItem('gemini_api_key', key);
+            } else {
+                localStorage.removeItem('gemini_api_key');
+            }
             checkStoredApiKey();
             closeApiKeyModal();
         }
@@ -565,11 +578,13 @@
                 return;
             }
 
-            // Validar que la API Key exista antes de hacer la petición
-            const userApiKey = localStorage.getItem('gemini_api_key') || "";
+            // Validar y desinfectar la API Key
+            const rawApiKey = localStorage.getItem('gemini_api_key') || "";
+            const userApiKey = sanitizeApiKey(rawApiKey);
+
             if (!userApiKey) {
                 openApiKeyModal();
-                alert("⚠️ Necesitas ingresar tu API Key de Gemini. Por favor configúrala en la ventana emergente.");
+                alert("⚠️ Necesitas ingresar tu API Key de Gemini.\n\nPor favor obtén una clave de Google AI Studio (aistudio.google.com/app/apikey) e ingrésala en el panel.");
                 return;
             }
 
@@ -656,58 +671,85 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 
             const userQuery = `Brief: "${topic}". Formato: ${currentFormat}. Cantidad de láminas: ${slideCount}.`;
 
-            try {
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userApiKey}`;
+            // Candidate models to attempt
+            const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+            let lastError = null;
+            let resultData = null;
 
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json" }
-                    })
-                });
+            for (const modelName of modelsToTry) {
+                try {
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(userApiKey)}`;
 
-                if (!response.ok) {
-                    let apiMessage = "";
-                    try {
-                        const errJson = await response.json();
-                        apiMessage = errJson.error?.message || response.statusText;
-                    } catch (e) {
-                        apiMessage = response.statusText;
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': userApiKey
+                        },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: userQuery }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] },
+                            generationConfig: { responseMimeType: "application/json" }
+                        })
+                    });
+
+                    if (response.status === 401) {
+                        openApiKeyModal();
+                        throw new Error(`Error en API de Gemini (401 - Autenticación Inválida):\n\nLa clave API ingresada no fue aceptada por Google.\n\nPasos para solucionar:\n1. Ve a https://aistudio.google.com/app/apikey\n2. Genera una nueva 'API Key' de Google AI Studio.\n3. Asegúrate de copiarla completa (empieza por AIzaSy...).`);
                     }
 
                     if (response.status === 403) {
-                        throw new Error(`Acceso denegado (HTTP 403): ${apiMessage}\n\nPosibles soluciones:\n1. Verifica haber ingresado una clave válida en 'API Key Gemini'.\n2. Si la creaste en Google Cloud Console, asegúrate de no tener restricciones de sitio web (HTTP Referrer) que bloqueen tu dominio de GitHub Pages.\n3. Obtén una clave limpia e ilimitada gratis desde Google AI Studio (aistudio.google.com).`);
+                        openApiKeyModal();
+                        throw new Error(`Error en API de Gemini (403 - Permiso Denegado):\n\nTu clave API existe pero no tiene permisos o tiene restricciones de IP/Dominio en Google Cloud Console.`);
                     }
-                    throw new Error(`Error en API de Gemini (${response.status}): ${apiMessage}`);
+
+                    if (!response.ok) {
+                        let errDetails = "";
+                        try {
+                            const errJson = await response.json();
+                            errDetails = errJson.error?.message || response.statusText;
+                        } catch(e) {
+                            errDetails = response.statusText;
+                        }
+                        lastError = new Error(`Model ${modelName} returned HTTP ${response.status}: ${errDetails}`);
+                        continue; // try next model if 404 or other temporary model error
+                    }
+
+                    const jsonResp = await response.json();
+                    const textContent = jsonResp.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (textContent) {
+                        resultData = JSON.parse(textContent);
+                        break; // Success!
+                    }
+                } catch (err) {
+                    if (err.message.includes('401') || err.message.includes('403')) {
+                        // Don't keep trying if authentication itself failed
+                        lastError = err;
+                        break;
+                    }
+                    lastError = err;
                 }
-
-                const result = await response.json();
-                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!jsonText) throw new Error("Respuesta inválida del modelo.");
-
-                const slidesData = JSON.parse(jsonText);
-
-                generatedSlides = slidesData.map(slide => {
-                    const fullEngineeredPrompt = `${slide.visualConceptPrompt}. TEXT RENDERING & LAYOUT: Include the exact title text "${slide.headline}" rendered in bold impact condensed font style at the designated area, and body text "${slide.bodyText}" in crisp legible typography. Layout: ${slide.textLayoutSpecs || 'Balanced upper hierarchy with 40% clean negative space'}. Visual Style: ${cameraSpecs}. Brand Palette: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
-                    return {
-                        ...slide,
-                        engineeredPrompt: fullEngineeredPrompt
-                    };
-                });
-
-                renderSlidesGrid();
-                renderExportMarkdown();
-
-            } catch (error) {
-                console.error(error);
-                alert("Ocurrió un error al generar la estrategia:\n\n" + error.message);
-                document.getElementById('emptyState').classList.remove('hidden');
-            } finally {
-                document.getElementById('loadingSkeleton').classList.add('hidden');
             }
+
+            if (!resultData) {
+                console.error(lastError);
+                alert("Ocurrió un error al generar la estrategia:\n\n" + (lastError?.message || "No se pudo conectar con la API de Gemini."));
+                document.getElementById('emptyState').classList.remove('hidden');
+                document.getElementById('loadingSkeleton').classList.add('hidden');
+                return;
+            }
+
+            generatedSlides = resultData.map(slide => {
+                const fullEngineeredPrompt = `${slide.visualConceptPrompt}. TEXT RENDERING & LAYOUT: Include the exact title text "${slide.headline}" rendered in bold impact condensed font style at the designated area, and body text "${slide.bodyText}" in crisp legible typography. Layout: ${slide.textLayoutSpecs || 'Balanced upper hierarchy with 40% clean negative space'}. Visual Style: ${cameraSpecs}. Brand Palette: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
+                return {
+                    ...slide,
+                    engineeredPrompt: fullEngineeredPrompt
+                };
+            });
+
+            renderSlidesGrid();
+            renderExportMarkdown();
+            document.getElementById('loadingSkeleton').classList.add('hidden');
         }
 
         function renderSlidesGrid() {
