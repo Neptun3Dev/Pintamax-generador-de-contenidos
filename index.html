@@ -239,7 +239,7 @@
             <!-- GENERATE BUTTON -->
             <button id="generateBtn" onclick="generatePostPlan()" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 hover:from-blue-500 hover:to-amber-400 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition duration-200 flex items-center justify-center space-x-2">
                 <i class="fa-solid fa-bolt text-amber-300"></i>
-                <span>Generar Prompts para Gemini Nano</span>
+                <span id="generateBtnText">Generar Prompts para Gemini Nano</span>
             </button>
         </aside>
 
@@ -339,10 +339,10 @@
                         <li>Entra en <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 font-bold underline">Google AI Studio (aistudio.google.com)</a>.</li>
                         <li>Haz clic en el botón azul <strong>"Create API Key"</strong> (o "Get API key").</li>
                         <li>Selecciona tu proyecto y presiona <strong>"Create API key in new project"</strong>.</li>
-                        <li>Copia el texto generado. <strong>Importante:</strong> Las claves de Google AI Studio inician por <code class="bg-slate-900 text-amber-300 px-1 rounded">AQ.Ab...</code> o <code class="bg-slate-900 text-amber-300 px-1 rounded">AIzaSy...</code>. Ambos formatos son totalmente válidos.</li>
+                        <li>Copia el texto generado. Las claves inician por <code class="bg-slate-900 text-amber-300 px-1 rounded">AQ.Ab...</code> o <code class="bg-slate-900 text-amber-300 px-1 rounded">AIzaSy...</code>. Ambos formatos son totalmente válidos.</li>
                     </ol>
                     <p class="text-[10px] text-slate-500 italic pt-1 border-t border-slate-800">
-                        *Nota: Si estás en Google Cloud Console, evita copiar archivos JSON de Service Accounts u OAuth Client IDs, ya que no funcionarán en REST directo.
+                        *Nota: Si estás en Google Cloud Console, evita copiar archivos JSON de Service Accounts u OAuth Client IDs.
                     </p>
                 </div>
             </div>
@@ -678,6 +678,15 @@
                 return;
             }
 
+            // Set loading state on button
+            const generateBtn = document.getElementById('generateBtn');
+            const generateBtnText = document.getElementById('generateBtnText');
+            const originalText = generateBtnText.textContent;
+            
+            generateBtn.disabled = true;
+            generateBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            generateBtnText.textContent = "Generando Estrategia...";
+
             document.getElementById('emptyState').classList.add('hidden');
             document.getElementById('slidesGrid').innerHTML = '';
             document.getElementById('loadingSkeleton').classList.remove('hidden');
@@ -761,91 +770,99 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 
             const userQuery = `Brief: "${topic}". Formato: ${currentFormat}. Cantidad de láminas: ${slideCount}.`;
 
-            // OFFICIAL PRODUCTION GEMINI MODELS
-            const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro'];
+            // OFFICIAL PRODUCTION GEMINI MODELS IN ORDER OF PREFERENCE
+            const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
             let lastError = null;
             let resultData = null;
 
-            for (const modelName of modelsToTry) {
-                try {
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(userApiKey)}`;
+            try {
+                for (const modelName of modelsToTry) {
+                    try {
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(userApiKey)}`;
 
-                    // Send both x-goog-api-key and Authorization Bearer headers for AQ / AIza key compatibility
-                    const reqHeaders = { 
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': userApiKey
-                    };
+                        // Clean standard header ONLY. Do NOT add 'Authorization: Bearer' for Gemini API keys.
+                        const reqHeaders = { 
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': userApiKey
+                        };
 
-                    if (userApiKey.startsWith('AQ.')) {
-                        reqHeaders['Authorization'] = `Bearer ${userApiKey}`;
-                    }
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: reqHeaders,
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: userQuery }] }],
+                                systemInstruction: { parts: [{ text: systemPrompt }] },
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
+                        });
 
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: reqHeaders,
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: userQuery }] }],
-                            systemInstruction: { parts: [{ text: systemPrompt }] },
-                            generationConfig: { responseMimeType: "application/json" }
-                        })
-                    });
-
-                    if (response.status === 401) {
-                        openApiKeyModal();
-                        throw new Error(`401 Autenticación Inválida: Tu API Key no fue aceptada por Google. Verifica haberla generado en aistudio.google.com/app/apikey`);
-                    }
-
-                    if (response.status === 403) {
-                        openApiKeyModal();
-                        throw new Error(`403 Permiso Denegado: Tu clave API carece de permisos o está restringida en Google Cloud.`);
-                    }
-
-                    if (!response.ok) {
-                        let errDetails = "";
-                        try {
-                            const errJson = await response.json();
-                            errDetails = errJson.error?.message || response.statusText;
-                        } catch(e) {
-                            errDetails = response.statusText;
+                        if (response.status === 401) {
+                            openApiKeyModal();
+                            throw new Error(`401 Autenticación Inválida: Tu API Key fue rechazada por Google. Genera una nueva en aistudio.google.com/app/apikey`);
                         }
-                        lastError = new Error(`HTTP ${response.status}: ${errDetails}`);
-                        continue;
-                    }
 
-                    const jsonResp = await response.json();
-                    const textContent = jsonResp.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (textContent) {
-                        resultData = JSON.parse(textContent);
-                        break;
-                    }
-                } catch (err) {
-                    lastError = err;
-                    if (err.message.includes('401') || err.message.includes('403')) {
-                        break;
+                        if (response.status === 403) {
+                            openApiKeyModal();
+                            throw new Error(`403 Permiso Denegado: Tu clave API carece de permisos o está restringida.`);
+                        }
+
+                        if (!response.ok) {
+                            let errDetails = "";
+                            try {
+                                const errJson = await response.json();
+                                errDetails = errJson.error?.message || response.statusText;
+                            } catch(e) {
+                                errDetails = response.statusText;
+                            }
+                            lastError = new Error(`HTTP ${response.status}: ${errDetails}`);
+                            continue;
+                        }
+
+                        const jsonResp = await response.json();
+                        const textContent = jsonResp.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (textContent) {
+                            let cleanJsonText = textContent.trim();
+                            if (cleanJsonText.startsWith("```json")) {
+                                cleanJsonText = cleanJsonText.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+                            } else if (cleanJsonText.startsWith("```")) {
+                                cleanJsonText = cleanJsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+                            }
+                            resultData = JSON.parse(cleanJsonText);
+                            break;
+                        }
+                    } catch (err) {
+                        lastError = err;
+                        if (err.message.includes('401') || err.message.includes('403')) {
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (!resultData) {
-                console.error(lastError);
-                showNotification("Error de Generación", lastError?.message || "No se pudo conectar con Gemini API.", true);
-                document.getElementById('emptyState').classList.remove('hidden');
+                if (!resultData) {
+                    console.error(lastError);
+                    showNotification("Error de Generación", lastError?.message || "No se pudo conectar con Gemini API.", true);
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    return;
+                }
+
+                generatedSlides = resultData.map(slide => {
+                    const fullEngineeredPrompt = `${slide.visualConceptPrompt}. TEXT RENDERING & LAYOUT: Include the exact title text "${slide.headline}" rendered in bold impact condensed font style at the designated area, and body text "${slide.bodyText}" in crisp legible typography. Layout: ${slide.textLayoutSpecs || 'Balanced upper hierarchy with 40% clean negative space'}. Visual Style: ${cameraSpecs}. Brand Palette: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
+                    return {
+                        ...slide,
+                        engineeredPrompt: fullEngineeredPrompt
+                    };
+                });
+
+                renderSlidesGrid();
+                renderExportMarkdown();
+                showNotification("¡Generación Exitosa!", "Se han construido las láminas y los prompts para Gemini Nano.");
+            } finally {
+                // Always reset loading UI state regardless of success or error
                 document.getElementById('loadingSkeleton').classList.add('hidden');
-                return;
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                generateBtnText.textContent = originalText;
             }
-
-            generatedSlides = resultData.map(slide => {
-                const fullEngineeredPrompt = `${slide.visualConceptPrompt}. TEXT RENDERING & LAYOUT: Include the exact title text "${slide.headline}" rendered in bold impact condensed font style at the designated area, and body text "${slide.bodyText}" in crisp legible typography. Layout: ${slide.textLayoutSpecs || 'Balanced upper hierarchy with 40% clean negative space'}. Visual Style: ${cameraSpecs}. Brand Palette: ${primaryColor} primary, ${accentColor} accent. ${textureSpecs}. Aspect Ratio: --ar ${currentFormat === '4:5' ? '4:5' : (currentFormat === '9:16' ? '9:16' : '1:1')}. NEGATIVE PROMPT: ${negativeRules}`;
-                return {
-                    ...slide,
-                    engineeredPrompt: fullEngineeredPrompt
-                };
-            });
-
-            renderSlidesGrid();
-            renderExportMarkdown();
-            document.getElementById('loadingSkeleton').classList.add('hidden');
-            showNotification("¡Generación Exitosa!", "Se han construido las láminas y los prompts para Gemini Nano.");
         }
 
         function renderSlidesGrid() {
